@@ -1,0 +1,33 @@
+services:
+  cassandra:
+    image: cassandra:5
+    container_name: cassandra
+    ports:
+      - "9042:9042"
+    environment:
+      - CASSANDRA_START_RPC=true
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE KEYSPACES'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: game-stats-web
+    ports:
+      - "9000:8000"
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    environment:
+      - CASSANDRA_HOST=cassandra
+
+volumes:
+  cassandra_data:

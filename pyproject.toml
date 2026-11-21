@@ -7,7 +7,11 @@ authors = [
     { name = "Joao-ava", email = "ajoao781238@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "cassandra-driver>=3.28.0",
+]
 
 [project.scripts]
 game-stats = "game_stats:main"
