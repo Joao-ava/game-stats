@@ -1,4 +1,5 @@
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
@@ -8,14 +9,15 @@ from fastapi.templating import Jinja2Templates
 from . import repository
 
 
-app = FastAPI(title="Game Stats")
-templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
-
-
-@app.on_event("startup")
-def startup():
+@asynccontextmanager
+async def lifespan(_: FastAPI):
     """Criar keyspace e tabelas na inicialização."""
     repository.create_schema()
+    yield
+
+
+app = FastAPI(title="Game Stats", lifespan=lifespan)
+templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
 def parse_id(raw: str) -> uuid.UUID:
