@@ -11,10 +11,23 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "cassandra-driver>=3.28.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.9",
 ]
 
 [project.scripts]
 game-stats = "game_stats:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+    "locust>=2.31.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
 
 [build-system]
 requires = ["uv_build>=0.13.7,<0.14.0"]

@@ -15,6 +15,9 @@ COPY src/game_stats/__init__.py ./src/game_stats/__init__.py
 # Instalar as dependências do projeto
 RUN uv sync
 
+# Expõe os executáveis do venv criado pelo uv sync (ex.: uvicorn) no PATH
+ENV PATH="/app/.venv/bin:$PATH"
+
 # Copiar o restante do código
 COPY src/ ./src/
 

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Partidas - GameStats{% endblock %}
+{% block content %}
+<div class="mb-6 flex items-center justify-between">
+  <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Histórico de partidas</h1>
+  <a class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500" href="/matches/new">Registrar partida</a>
+</div>
+<div class="overflow-hidden rounded-xl bg-white shadow ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
+<table class="w-full text-left text-sm">
+  <thead class="bg-slate-50 text-xs uppercase tracking-wider text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+    <tr>
+      <th class="px-4 py-3 font-semibold">Data</th>
+      <th class="px-4 py-3 font-semibold">Jogador A</th>
+      <th class="px-4 py-3 text-center font-semibold">Placar</th>
+      <th class="px-4 py-3 font-semibold">Jogador B</th>
+    </tr>
+  </thead>
+  <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+    {% for m in matches %}
+    <tr class="transition hover:bg-slate-50 dark:hover:bg-slate-800/50">
+      <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ m.played_at.strftime('%d/%m/%Y %H:%M') if m.played_at else '-' }}</td>
+      <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ names.get(m.player_a, 'Jogador removido') }}</td>
+      <td class="px-4 py-3 text-center"><span class="inline-block rounded-full bg-indigo-50 px-3 py-1 font-bold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">{{ m.score_a }} x {{ m.score_b }}</span></td>
+      <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ names.get(m.player_b, 'Jogador removido') }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">Nenhuma partida registrada.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}GameStats{% endblock %}</title>
+  <script>
+    (function () {
+      var saved = localStorage.getItem('theme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (saved === 'dark' || (!saved && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-100">
+<header class="bg-gradient-to-r from-indigo-600 to-violet-600 shadow-md dark:from-indigo-900 dark:to-violet-900">
+  <nav class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+    <span class="text-lg font-extrabold tracking-tight text-white">GameStats</span>
+    <div class="flex items-center gap-2">
+      <a href="/players" class="rounded-lg px-3 py-2 text-sm font-semibold text-indigo-100 transition hover:bg-white/10 hover:text-white">Jogadores</a>
+      <a href="/matches" class="rounded-lg px-3 py-2 text-sm font-semibold text-indigo-100 transition hover:bg-white/10 hover:text-white">Partidas</a>
+      <a href="/ranking" class="rounded-lg px-3 py-2 text-sm font-semibold text-indigo-100 transition hover:bg-white/10 hover:text-white">Ranking</a>
+      <button id="theme-toggle" type="button" class="ml-2 inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20" aria-label="Trocar tema">
+        <span class="dark:hidden">🌙 Escuro</span>
+        <span class="hidden dark:inline">☀️ Claro</span>
+      </button>
+    </div>
+  </nav>
+</header>
+<main class="mx-auto max-w-5xl px-6 py-10">
+{% block content %}{% endblock %}
+</main>
+<script>
+  document.getElementById('theme-toggle').addEventListener('click', function () {
+    var isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  });
+</script>
+</body>
+</html>
