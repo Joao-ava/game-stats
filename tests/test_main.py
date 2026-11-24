@@ -30,6 +30,21 @@ def test_players_page_lists_players(client, fake_repo):
     assert "ana" in response.text
 
 
+def test_players_page_sorts_by_updated(client, fake_repo):
+    from datetime import datetime, timezone
+
+    old = add_player(fake_repo, "Ana")
+    new = add_player(fake_repo, "Bruno")
+    fake_repo.players[old]["updated_at"] = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    fake_repo.players[new]["updated_at"] = datetime(2026, 2, 1, tzinfo=timezone.utc)
+
+    desc = client.get("/players?sort=updated&order=desc").text
+    asc = client.get("/players?sort=updated&order=asc").text
+
+    assert desc.index("Bruno") < desc.index("Ana")
+    assert asc.index("Ana") < asc.index("Bruno")
+
+
 def test_players_page_empty_message(client):
     response = client.get("/players")
 

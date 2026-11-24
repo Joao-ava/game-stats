@@ -10,6 +10,7 @@ def make_player(name: str, nickname: str = "") -> dict:
         "name": name,
         "nickname": nickname,
         "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+        "updated_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
     }
 
 
@@ -21,6 +22,7 @@ def make_match(player_a, player_b, score_a: int, score_b: int, played_at=None) -
         "player_b": player_b,
         "score_a": score_a,
         "score_b": score_b,
+        "updated_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
     }
 
 
@@ -190,7 +192,9 @@ class TestPlayerQueries:
 
         query, params = cassandra_session.execute.call_args.args
         assert "UPDATE game_stats.players" in query
-        assert params == ("Ana Maria", "ana", pid)
+        assert params[:2] == ("Ana Maria", "ana")
+        assert isinstance(params[2], datetime)
+        assert params[3] == pid
 
     def test_delete_player_issues_delete(self, cassandra_session):
         pid = uuid.uuid4()
@@ -219,9 +223,10 @@ class TestMatchQueries:
 
         query, params = cassandra_session.execute.call_args.args
         assert "INSERT INTO game_stats.matches" in query
-        assert params[2:] == (a, b, 3, 2)
+        assert params[2:6] == (a, b, 3, 2)
         assert isinstance(params[0], uuid.UUID)
         assert isinstance(params[1], datetime)
+        assert isinstance(params[6], datetime)
 
 
 class TestSchema:
@@ -229,10 +234,12 @@ class TestSchema:
         repository.create_schema()
 
         statements = [c.args[0] for c in cassandra_session.execute.call_args_list]
-        assert len(statements) == 3
+        assert len(statements) == 5
         assert "CREATE KEYSPACE IF NOT EXISTS game_stats" in statements[0]
         assert "game_stats.players" in statements[1]
-        assert "game_stats.matches" in statements[2]
+        assert "ADD IF NOT EXISTS updated_at" in statements[2] and "players" in statements[2]
+        assert "game_stats.matches" in statements[3]
+        assert "ADD IF NOT EXISTS updated_at" in statements[4] and "matches" in statements[4]
 
 
 def make_row(data: dict):

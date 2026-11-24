@@ -11,6 +11,7 @@
     <tr>
       <th class="px-4 py-3 font-semibold">Nome</th>
       <th class="px-4 py-3 font-semibold">Apelido</th>
+      <th class="px-4 py-3 font-semibold"><a href="/players?sort=updated&order={{ 'asc' if sort == 'updated' and order == 'desc' else 'desc' }}">Atualizado{% if sort == 'updated' %} {{ '▲' if order == 'asc' else '▼' }}{% endif %}</a></th>
       <th class="px-4 py-3 text-right font-semibold">Ações</th>
     </tr>
   </thead>
@@ -19,6 +20,7 @@
     <tr class="transition hover:bg-slate-50 dark:hover:bg-slate-800/50">
       <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ p.name }}</td>
       <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ p.nickname }}</td>
+      <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ p.updated_at.strftime('%d/%m/%Y %H:%M') if p.updated_at else '-' }}</td>
       <td class="px-4 py-3">
         <div class="flex items-center justify-end gap-2">
           <a class="inline-flex items-center rounded-lg bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-500/20 dark:text-indigo-300 dark:hover:bg-indigo-500/30" href="/players/{{ p.player_id }}/edit">Editar</a>
@@ -29,7 +31,7 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="3" class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">Nenhum jogador cadastrado.</td></tr>
+    <tr><td colspan="4" class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">Nenhum jogador cadastrado.</td></tr>
     {% endfor %}
   </tbody>
 </table>

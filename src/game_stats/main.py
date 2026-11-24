@@ -35,6 +35,13 @@ def match_form_context(error: str | None = None) -> dict:
     return {"players": repository.list_players(), "error": error}
 
 
+def sort_by_updated(rows: list[dict], order: str) -> list[dict]:
+    with_date = [r for r in rows if r.get("updated_at")]
+    without_date = [r for r in rows if not r.get("updated_at")]
+    with_date.sort(key=lambda r: r["updated_at"], reverse=order == "desc")
+    return with_date + without_date
+
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
@@ -46,9 +53,14 @@ def index():
 
 
 @app.get("/players", response_class=HTMLResponse)
-def players_page(request: Request):
+def players_page(request: Request, sort: str = "name", order: str = "asc"):
+    players = repository.list_players()
+    if sort == "updated":
+        players = sort_by_updated(players, order)
+    else:
+        sort, order = "name", "asc"
     return templates.TemplateResponse(
-        request, "players.html", {"players": repository.list_players()}
+        request, "players.html", {"players": players, "sort": sort, "order": order}
     )
 
 
@@ -116,12 +128,17 @@ def delete_player(player_id: str):
 
 
 @app.get("/matches", response_class=HTMLResponse)
-def matches_page(request: Request):
+def matches_page(request: Request, sort: str = "played", order: str = "desc"):
     names = {p["player_id"]: p["name"] for p in repository.list_players()}
+    matches = repository.list_matches()
+    if sort == "updated":
+        matches = sort_by_updated(matches, order)
+    else:
+        sort, order = "played", "desc"
     return templates.TemplateResponse(
         request,
         "matches.html",
-        {"matches": repository.list_matches(), "names": names},
+        {"matches": matches, "names": names, "sort": sort, "order": order},
     )
 
 

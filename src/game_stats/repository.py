@@ -19,9 +19,11 @@ def create_schema() -> None:
             player_id uuid PRIMARY KEY,
             name text,
             nickname text,
-            created_at timestamp
+            created_at timestamp,
+            updated_at timestamp
         )
     """)
+    session.execute(f"ALTER TABLE {KEYSPACE}.players ADD IF NOT EXISTS updated_at timestamp")
     session.execute(f"""
         CREATE TABLE IF NOT EXISTS {KEYSPACE}.matches (
             match_id uuid PRIMARY KEY,
@@ -29,9 +31,11 @@ def create_schema() -> None:
             player_a uuid,
             player_b uuid,
             score_a int,
-            score_b int
+            score_b int,
+            updated_at timestamp
         )
     """)
+    session.execute(f"ALTER TABLE {KEYSPACE}.matches ADD IF NOT EXISTS updated_at timestamp")
 
 
 def _player_row(row) -> dict:
@@ -40,6 +44,7 @@ def _player_row(row) -> dict:
         "name": row.name,
         "nickname": row.nickname or "",
         "created_at": row.created_at,
+        "updated_at": row.updated_at,
     }
 
 
@@ -51,19 +56,20 @@ def _match_row(row) -> dict:
         "player_b": row.player_b,
         "score_a": row.score_a,
         "score_b": row.score_b,
+        "updated_at": row.updated_at,
     }
 
 
 def list_players() -> list[dict]:
     rows = session.execute(
-        f"SELECT player_id, name, nickname, created_at FROM {KEYSPACE}.players"
+        f"SELECT player_id, name, nickname, created_at, updated_at FROM {KEYSPACE}.players"
     )
     return sorted((_player_row(r) for r in rows), key=lambda p: p["name"].lower())
 
 
 def get_player(player_id: uuid.UUID) -> dict | None:
     row = session.execute(
-        f"SELECT player_id, name, nickname, created_at FROM {KEYSPACE}.players WHERE player_id = %s",
+        f"SELECT player_id, name, nickname, created_at, updated_at FROM {KEYSPACE}.players WHERE player_id = %s",
         [player_id],
     ).one()
     return _player_row(row) if row else None
@@ -71,15 +77,15 @@ def get_player(player_id: uuid.UUID) -> dict | None:
 
 def create_player(name: str, nickname: str) -> None:
     session.execute(
-        f"INSERT INTO {KEYSPACE}.players (player_id, name, nickname, created_at) VALUES (%s, %s, %s, %s)",
-        (uuid.uuid4(), name, nickname, datetime.now(timezone.utc)),
+        f"INSERT INTO {KEYSPACE}.players (player_id, name, nickname, created_at, updated_at) VALUES (%s, %s, %s, %s, %s)",
+        (uuid.uuid4(), name, nickname, datetime.now(timezone.utc), datetime.now(timezone.utc)),
     )
 
 
 def update_player(player_id: uuid.UUID, name: str, nickname: str) -> None:
     session.execute(
-        f"UPDATE {KEYSPACE}.players SET name = %s, nickname = %s WHERE player_id = %s",
-        (name, nickname, player_id),
+        f"UPDATE {KEYSPACE}.players SET name = %s, nickname = %s, updated_at = %s WHERE player_id = %s",
+        (name, nickname, datetime.now(timezone.utc), player_id),
     )
 
 
@@ -89,16 +95,16 @@ def delete_player(player_id: uuid.UUID) -> None:
 
 def list_matches() -> list[dict]:
     rows = session.execute(
-        f"SELECT match_id, played_at, player_a, player_b, score_a, score_b FROM {KEYSPACE}.matches"
+        f"SELECT match_id, played_at, player_a, player_b, score_a, score_b, updated_at FROM {KEYSPACE}.matches"
     )
     return sorted((_match_row(r) for r in rows), key=lambda m: m["played_at"], reverse=True)
 
 
 def create_match(player_a: uuid.UUID, player_b: uuid.UUID, score_a: int, score_b: int) -> None:
     session.execute(
-        f"INSERT INTO {KEYSPACE}.matches (match_id, played_at, player_a, player_b, score_a, score_b) "
-        "VALUES (%s, %s, %s, %s, %s, %s)",
-        (uuid.uuid4(), datetime.now(timezone.utc), player_a, player_b, score_a, score_b),
+        f"INSERT INTO {KEYSPACE}.matches (match_id, played_at, player_a, player_b, score_a, score_b, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        (uuid.uuid4(), datetime.now(timezone.utc), player_a, player_b, score_a, score_b, datetime.now(timezone.utc)),
     )
 
 

@@ -34,6 +34,7 @@ class FakeRepository:
             "name": name,
             "nickname": nickname,
             "created_at": None,
+            "updated_at": None,
         }
 
     def update_player(self, player_id: uuid.UUID, name: str, nickname: str) -> None:
@@ -54,6 +55,7 @@ class FakeRepository:
                 "player_b": player_b,
                 "score_a": score_a,
                 "score_b": score_b,
+                "updated_at": None,
             }
         )
 

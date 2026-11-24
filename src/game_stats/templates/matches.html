@@ -13,6 +13,7 @@
       <th class="px-4 py-3 font-semibold">Jogador A</th>
       <th class="px-4 py-3 text-center font-semibold">Placar</th>
       <th class="px-4 py-3 font-semibold">Jogador B</th>
+      <th class="px-4 py-3 font-semibold"><a href="/matches?sort=updated&order={{ 'asc' if sort == 'updated' and order == 'desc' else 'desc' }}">Atualizado{% if sort == 'updated' %} {{ '▲' if order == 'asc' else '▼' }}{% endif %}</a></th>
     </tr>
   </thead>
   <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -22,9 +23,10 @@
       <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ names.get(m.player_a, 'Jogador removido') }}</td>
       <td class="px-4 py-3 text-center"><span class="inline-block rounded-full bg-indigo-50 px-3 py-1 font-bold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">{{ m.score_a }} x {{ m.score_b }}</span></td>
       <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ names.get(m.player_b, 'Jogador removido') }}</td>
+      <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ m.updated_at.strftime('%d/%m/%Y %H:%M') if m.updated_at else '-' }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="4" class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">Nenhuma partida registrada.</td></tr>
+    <tr><td colspan="5" class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">Nenhuma partida registrada.</td></tr>
     {% endfor %}
   </tbody>
 </table>
