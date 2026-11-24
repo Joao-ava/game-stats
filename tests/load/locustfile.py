@@ -1,8 +1,12 @@
 import random
 import re
 import uuid
+from datetime import date
 
+from faker import Faker
 from locust import HttpUser, between, task
+
+fake = Faker("pt_BR")
 
 PLAYER_ID_RE = re.compile(r"/players/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/edit")
 
@@ -19,7 +23,10 @@ class GameStatsUser(HttpUser):
     def create_player(self):
         self.client.post(
             "/players",
-            data={"name": f"Jogador {uuid.uuid4().hex[:8]}", "nickname": "load"},
+            data={
+                "username": f"{fake.user_name()}_{uuid.uuid4().hex[:6]}",
+                "email": fake.email(),
+            },
             name="/players [POST]",
         )
 
@@ -33,26 +40,33 @@ class GameStatsUser(HttpUser):
         self.refresh_players()
 
     @task(2)
-    def view_ranking(self):
-        self.client.get("/ranking", name="/ranking")
+    def view_leaderboard(self):
+        self.client.get("/leaderboard", name="/leaderboard")
 
     @task(2)
     def list_matches(self):
-        self.client.get("/matches", name="/matches [GET]")
+        if not self.player_ids:
+            self.refresh_players()
+            return
+        pid = random.choice(self.player_ids)
+        self.client.get(f"/players/{pid}/matches", name="/players/[id]/matches [GET]")
 
     @task(3)
     def register_match(self):
-        if len(self.player_ids) < 2:
+        if not self.player_ids:
             self.refresh_players()
             return
-        a, b = random.sample(self.player_ids, 2)
         self.client.post(
             "/matches",
             data={
-                "player_a": a,
-                "player_b": b,
-                "score_a": random.randint(0, 5),
-                "score_b": random.randint(0, 5),
+                "player_id": random.choice(self.player_ids),
+                "score": random.randint(0, 5),
+                "result": random.choice(["win", "draw", "loss"]),
+                "match_date": date.today().isoformat(),
+                "game_mode": "ranked",
+                "kills": random.randint(0, 10),
+                "deaths": random.randint(0, 10),
+                "match_id": str(uuid.uuid4()),
             },
             name="/matches [POST]",
         )

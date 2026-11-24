@@ -6,41 +6,56 @@
 {% if error %}
 <p class="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30">{{ error }}</p>
 {% endif %}
-{% if players|length < 2 %}
-<div class="rounded-xl bg-white p-6 text-slate-600 shadow ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-800">Cadastre pelo menos dois jogadores para registrar uma partida.</div>
+{% if not players %}
+<div class="rounded-xl bg-white p-6 text-slate-600 shadow ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-800">Cadastre pelo menos um jogador para registrar uma partida.</div>
 {% else %}
 <form method="post" action="/matches" class="space-y-5 rounded-xl bg-white p-6 shadow ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
+  <input type="hidden" name="match_id" value="{{ match_id }}">
+  <div>
+    <label for="player_id" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Jogador</label>
+    <select id="player_id" name="player_id" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
+      {% for p in players %}
+      <option value="{{ p.player_id }}">{{ p.username }}</option>
+      {% endfor %}
+    </select>
+  </div>
   <div class="grid grid-cols-2 gap-4">
     <div>
-      <label for="player_a" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Jogador A</label>
-      <select id="player_a" name="player_a" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
-        {% for p in players %}
-        <option value="{{ p.player_id }}">{{ p.name }}</option>
-        {% endfor %}
-      </select>
+      <label for="match_date" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Data da partida</label>
+      <input id="match_date" name="match_date" type="date" value="{{ today }}" required class="w-full rounded-lg border border-slate-300 px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
     </div>
     <div>
-      <label for="score_a" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Pontuação do Jogador A</label>
-      <input id="score_a" name="score_a" type="number" min="0" required class="w-full rounded-lg border border-slate-300 px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
+      <label for="game_mode" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Modo de jogo</label>
+      <input id="game_mode" name="game_mode" type="text" required class="w-full rounded-lg border border-slate-300 px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
     </div>
   </div>
   <div class="grid grid-cols-2 gap-4">
     <div>
-      <label for="player_b" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Jogador B</label>
-      <select id="player_b" name="player_b" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
-        {% for p in players %}
-        <option value="{{ p.player_id }}">{{ p.name }}</option>
-        {% endfor %}
-      </select>
+      <label for="score" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Pontuação</label>
+      <input id="score" name="score" type="number" min="0" required class="w-full rounded-lg border border-slate-300 px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
     </div>
     <div>
-      <label for="score_b" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Pontuação do Jogador B</label>
-      <input id="score_b" name="score_b" type="number" min="0" required class="w-full rounded-lg border border-slate-300 px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
+      <label for="result" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Resultado</label>
+      <select id="result" name="result" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
+        <option value="win">Vitória</option>
+        <option value="draw">Empate</option>
+        <option value="loss">Derrota</option>
+      </select>
+    </div>
+  </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label for="kills" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Abates</label>
+      <input id="kills" name="kills" type="number" min="0" value="0" required class="w-full rounded-lg border border-slate-300 px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
+    </div>
+    <div>
+      <label for="deaths" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Mortes</label>
+      <input id="deaths" name="deaths" type="number" min="0" value="0" required class="w-full rounded-lg border border-slate-300 px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
     </div>
   </div>
   <div class="flex items-center gap-4 pt-2">
     <button class="inline-flex items-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500" type="submit">Salvar</button>
-    <a href="/matches" class="text-sm font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200">Cancelar</a>
+    <a href="/players" class="text-sm font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200">Cancelar</a>
   </div>
 </form>
 {% endif %}

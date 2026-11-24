@@ -1,5 +1,6 @@
 import uuid
 from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
@@ -31,15 +32,13 @@ def player_form_context(player: dict | None, action: str, error: str | None = No
     return {"player": player, "action": action, "error": error}
 
 
-def match_form_context(error: str | None = None) -> dict:
-    return {"players": repository.list_players(), "error": error}
-
-
-def sort_by_updated(rows: list[dict], order: str) -> list[dict]:
-    with_date = [r for r in rows if r.get("updated_at")]
-    without_date = [r for r in rows if not r.get("updated_at")]
-    with_date.sort(key=lambda r: r["updated_at"], reverse=order == "desc")
-    return with_date + without_date
+def match_form_context(match_id: uuid.UUID, error: str | None = None) -> dict:
+    return {
+        "players": repository.list_players(),
+        "match_id": match_id,
+        "error": error,
+        "today": date.today().isoformat(),
+    }
 
 
 @app.get("/health")
@@ -53,14 +52,9 @@ def index():
 
 
 @app.get("/players", response_class=HTMLResponse)
-def players_page(request: Request, sort: str = "name", order: str = "asc"):
-    players = repository.list_players()
-    if sort == "updated":
-        players = sort_by_updated(players, order)
-    else:
-        sort, order = "name", "asc"
+def players_page(request: Request):
     return templates.TemplateResponse(
-        request, "players.html", {"players": players, "sort": sort, "order": order}
+        request, "players.html", {"players": repository.list_players()}
     )
 
 
@@ -72,16 +66,16 @@ def new_player_page(request: Request):
 
 
 @app.post("/players")
-def create_player(request: Request, name: str = Form(...), nickname: str = Form("")):
-    name = name.strip()
-    if not name:
+def create_player(request: Request, username: str = Form(...), email: str = Form("")):
+    username = username.strip()
+    if not username:
         return templates.TemplateResponse(
             request,
             "player_form.html",
-            player_form_context(None, "/players", "Informe o nome do jogador."),
+            player_form_context(None, "/players", "Informe o nome de usuário do jogador."),
             status_code=400,
         )
-    repository.create_player(name, nickname.strip())
+    repository.create_player(username, email.strip())
     return RedirectResponse("/players", status_code=303)
 
 
@@ -102,78 +96,99 @@ def edit_player_page(request: Request, player_id: str):
 def update_player(
     request: Request,
     player_id: str,
-    name: str = Form(...),
-    nickname: str = Form(""),
+    username: str = Form(...),
+    email: str = Form(""),
 ):
     pid = parse_id(player_id)
     player = repository.get_player(pid)
     if not player:
         raise HTTPException(status_code=404, detail="Jogador não encontrado")
-    name = name.strip()
-    if not name:
+    username = username.strip()
+    if not username:
         return templates.TemplateResponse(
             request,
             "player_form.html",
-            player_form_context(player, f"/players/{pid}/edit", "Informe o nome do jogador."),
+            player_form_context(player, f"/players/{pid}/edit", "Informe o nome de usuário do jogador."),
             status_code=400,
         )
-    repository.update_player(pid, name, nickname.strip())
+    repository.update_player(pid, username, email.strip())
     return RedirectResponse("/players", status_code=303)
 
 
 @app.post("/players/{player_id}/delete")
 def delete_player(player_id: str):
-    repository.delete_player(parse_id(player_id))
+    try:
+        repository.delete_player(parse_id(player_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     return RedirectResponse("/players", status_code=303)
 
 
-@app.get("/matches", response_class=HTMLResponse)
-def matches_page(request: Request, sort: str = "played", order: str = "desc"):
-    names = {p["player_id"]: p["name"] for p in repository.list_players()}
-    matches = repository.list_matches()
-    if sort == "updated":
-        matches = sort_by_updated(matches, order)
-    else:
-        sort, order = "played", "desc"
+@app.get("/players/{player_id}/matches", response_class=HTMLResponse)
+def player_matches_page(request: Request, player_id: str):
+    pid = parse_id(player_id)
+    player = repository.get_player(pid)
+    if not player:
+        raise HTTPException(status_code=404, detail="Jogador não encontrado")
     return templates.TemplateResponse(
         request,
         "matches.html",
-        {"matches": matches, "names": names, "sort": sort, "order": order},
+        {"player": player, "matches": repository.list_player_matches(pid)},
     )
 
 
 @app.get("/matches/new", response_class=HTMLResponse)
 def new_match_page(request: Request):
-    return templates.TemplateResponse(request, "match_form.html", match_form_context())
+    return templates.TemplateResponse(
+        request, "match_form.html", match_form_context(uuid.uuid4())
+    )
 
 
 @app.post("/matches")
 def create_match(
     request: Request,
-    player_a: str = Form(...),
-    player_b: str = Form(...),
-    score_a: int = Form(...),
-    score_b: int = Form(...),
+    player_id: str = Form(...),
+    match_date: date = Form(...),
+    game_mode: str = Form(...),
+    score: int = Form(...),
+    kills: int = Form(...),
+    deaths: int = Form(...),
+    result: str = Form(...),
+    match_id: str = Form(...),
 ):
-    pa = parse_id(player_a)
-    pb = parse_id(player_b)
+    mid = parse_id(match_id)
+    pid = parse_id(player_id)
+    game_mode = game_mode.strip()
     error = None
-    if pa == pb:
-        error = "Selecione dois jogadores diferentes."
-    elif score_a < 0 or score_b < 0:
+    if not game_mode:
+        error = "Informe o modo de jogo."
+    elif score < 0:
         error = "As pontuações não podem ser negativas."
-    elif not repository.get_player(pa) or not repository.get_player(pb):
+    elif kills < 0 or deaths < 0:
+        error = "Abates e mortes não podem ser negativos."
+    elif result not in ("win", "draw", "loss"):
+        error = "Selecione um resultado válido."
+    elif not repository.get_player(pid):
         error = "Jogador não encontrado."
     if error:
         return templates.TemplateResponse(
-            request, "match_form.html", match_form_context(error), status_code=400
+            request, "match_form.html", match_form_context(mid, error), status_code=400
         )
-    repository.create_match(pa, pb, score_a, score_b)
-    return RedirectResponse("/matches", status_code=303)
+    repository.create_match(
+        pid,
+        score,
+        result,
+        mid,
+        match_date=match_date,
+        game_mode=game_mode,
+        kills=kills,
+        deaths=deaths,
+    )
+    return RedirectResponse(f"/players/{pid}/matches", status_code=303)
 
 
-@app.get("/ranking", response_class=HTMLResponse)
-def ranking_page(request: Request):
+@app.get("/leaderboard", response_class=HTMLResponse)
+def leaderboard_page(request: Request):
     return templates.TemplateResponse(
-        request, "ranking.html", {"ranking": repository.get_ranking()}
+        request, "leaderboard.html", {"leaderboard": repository.list_leaderboard()}
     )

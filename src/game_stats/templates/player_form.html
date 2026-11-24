@@ -8,12 +8,12 @@
 {% endif %}
 <form method="post" action="{{ action }}" class="space-y-5 rounded-xl bg-white p-6 shadow ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
   <div>
-    <label for="name" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Nome</label>
-    <input id="name" name="name" type="text" required value="{{ player.name if player else '' }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
+    <label for="username" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Nome de usuário</label>
+    <input id="username" name="username" type="text" required value="{{ player.username if player else '' }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
   </div>
   <div>
-    <label for="nickname" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Apelido</label>
-    <input id="nickname" name="nickname" type="text" value="{{ player.nickname if player else '' }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
+    <label for="email" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">E-mail</label>
+    <input id="email" name="email" type="email" value="{{ player.email if player else '' }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40">
   </div>
   <div class="flex items-center gap-4 pt-2">
     <button class="inline-flex items-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500" type="submit">Salvar</button>

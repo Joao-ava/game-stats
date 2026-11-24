@@ -22,47 +22,77 @@ class FakeRepository:
         pass
 
     def list_players(self) -> list[dict]:
-        return sorted(self.players.values(), key=lambda p: p["name"].lower())
+        return list(self.players.values())
 
     def get_player(self, player_id: uuid.UUID) -> dict | None:
         return self.players.get(player_id)
 
-    def create_player(self, name: str, nickname: str) -> None:
+    def create_player(self, username: str, email: str) -> None:
         pid = uuid.uuid4()
         self.players[pid] = {
             "player_id": pid,
-            "name": name,
-            "nickname": nickname,
+            "username": username,
+            "email": email,
             "created_at": None,
-            "updated_at": None,
         }
 
-    def update_player(self, player_id: uuid.UUID, name: str, nickname: str) -> None:
-        self.players[player_id].update(name=name, nickname=nickname)
+    def update_player(self, player_id: uuid.UUID, username: str, email: str) -> bool:
+        if player_id not in self.players:
+            return False
+        self.players[player_id].update(username=username, email=email)
+        return True
 
     def delete_player(self, player_id: uuid.UUID) -> None:
+        if any(m["player_id"] == player_id for m in self.matches):
+            raise ValueError("Jogador possui partidas registradas e não pode ser excluído.")
         self.players.pop(player_id, None)
 
-    def list_matches(self) -> list[dict]:
-        return list(self.matches)
+    def list_player_matches(self, player_id: uuid.UUID) -> list[dict]:
+        return [m for m in self.matches if m["player_id"] == player_id]
 
-    def create_match(self, player_a, player_b, score_a: int, score_b: int) -> None:
+    def create_match(
+        self,
+        player_id: uuid.UUID,
+        score: int,
+        result: str,
+        match_id: uuid.UUID | None = None,
+        match_date=None,
+        game_mode: str = "",
+        kills: int = 0,
+        deaths: int = 0,
+    ) -> bool:
+        match_id = match_id or uuid.uuid4()
+        if any(m["match_id"] == match_id for m in self.matches):
+            return False
         self.matches.append(
             {
-                "match_id": uuid.uuid4(),
-                "played_at": None,
-                "player_a": player_a,
-                "player_b": player_b,
-                "score_a": score_a,
-                "score_b": score_b,
-                "updated_at": None,
+                "player_id": player_id,
+                "match_date": match_date,
+                "game_mode": game_mode,
+                "kills": kills,
+                "deaths": deaths,
+                "match_id": match_id,
+                "score": score,
+                "result": result,
             }
         )
+        return True
 
-    def get_ranking(self) -> list[dict]:
+    def list_leaderboard(self) -> list[dict]:
         from game_stats import repository
 
-        return repository.compute_ranking(self.list_players(), self.list_matches())
+        entries = []
+        for pid, player in self.players.items():
+            results = [m["result"] for m in self.matches if m["player_id"] == pid]
+            entries.append(
+                {
+                    "player_id": pid,
+                    "username": player["username"],
+                    "points": sum(repository.RESULT_POINTS[r] for r in results),
+                    "wins": results.count("win"),
+                }
+            )
+        return sorted(entries, key=lambda e: -e["points"])
 
 
 @pytest.fixture

@@ -1,203 +1,79 @@
 import uuid
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
+
+import pytest
+from cassandra.query import BatchType
 
 from game_stats import repository
 
 
-def make_player(name: str, nickname: str = "") -> dict:
+def _batch(session, call_index: int) -> list[str]:
+    batch = session.execute.call_args_list[call_index].args[0]
+    return [query for _, query, _ in batch._statements_and_parameters]
+
+
+def make_player(username: str, email: str = "") -> dict:
     return {
         "player_id": uuid.uuid4(),
-        "name": name,
-        "nickname": nickname,
+        "username": username,
+        "email": email,
         "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
-        "updated_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
     }
-
-
-def make_match(player_a, player_b, score_a: int, score_b: int, played_at=None) -> dict:
-    return {
-        "match_id": uuid.uuid4(),
-        "played_at": played_at or datetime(2026, 1, 1, tzinfo=timezone.utc),
-        "player_a": player_a,
-        "player_b": player_b,
-        "score_a": score_a,
-        "score_b": score_b,
-        "updated_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
-    }
-
-
-class TestComputeRanking:
-    def test_empty_inputs_return_empty_ranking(self):
-        assert repository.compute_ranking([], []) == []
-
-    def test_players_without_matches_have_zero_stats(self):
-        ana = make_player("Ana")
-
-        ranking = repository.compute_ranking([ana], [])
-
-        assert ranking == [
-            {
-                "player_id": ana["player_id"],
-                "name": "Ana",
-                "nickname": "",
-                "played": 0,
-                "wins": 0,
-                "draws": 0,
-                "losses": 0,
-                "points": 0,
-            }
-        ]
-
-    def test_win_gives_three_points_and_loss_gives_none(self):
-        ana, bruno = make_player("Ana"), make_player("Bruno")
-        matches = [make_match(ana["player_id"], bruno["player_id"], 2, 1)]
-
-        ranking = {r["name"]: r for r in repository.compute_ranking([ana, bruno], matches)}
-
-        assert ranking["Ana"]["wins"] == 1
-        assert ranking["Ana"]["points"] == repository.POINTS_WIN == 3
-        assert ranking["Bruno"]["losses"] == 1
-        assert ranking["Bruno"]["points"] == 0
-
-    def test_draw_gives_one_point_to_each_player(self):
-        ana, bruno = make_player("Ana"), make_player("Bruno")
-        matches = [make_match(ana["player_id"], bruno["player_id"], 0, 0)]
-
-        ranking = {r["name"]: r for r in repository.compute_ranking([ana, bruno], matches)}
-
-        assert ranking["Ana"]["draws"] == 1
-        assert ranking["Ana"]["points"] == repository.POINTS_DRAW == 1
-        assert ranking["Bruno"]["draws"] == 1
-        assert ranking["Bruno"]["points"] == 1
-
-    def test_second_player_wins_when_score_b_is_higher(self):
-        ana, bruno = make_player("Ana"), make_player("Bruno")
-        matches = [make_match(ana["player_id"], bruno["player_id"], 1, 4)]
-
-        ranking = {r["name"]: r for r in repository.compute_ranking([ana, bruno], matches)}
-
-        assert ranking["Bruno"]["wins"] == 1
-        assert ranking["Bruno"]["points"] == 3
-        assert ranking["Ana"]["losses"] == 1
-        assert ranking["Ana"]["points"] == 0
-
-    def test_accumulates_played_wins_draws_losses_and_points(self):
-        ana, bruno, carlos = make_player("Ana"), make_player("Bruno"), make_player("Carlos")
-        a, b, c = ana["player_id"], bruno["player_id"], carlos["player_id"]
-        matches = [
-            make_match(a, b, 2, 1),  # Ana vence
-            make_match(b, c, 0, 0),  # empate
-            make_match(c, a, 3, 0),  # Carlos vence
-        ]
-
-        ranking = {
-            r["name"]: r
-            for r in repository.compute_ranking([ana, bruno, carlos], matches)
-        }
-
-        assert ranking["Ana"]["played"] == 2
-        assert ranking["Ana"]["wins"] == 1
-        assert ranking["Ana"]["draws"] == 0
-        assert ranking["Ana"]["losses"] == 1
-        assert ranking["Ana"]["points"] == 3
-        assert ranking["Bruno"]["played"] == 2
-        assert ranking["Bruno"]["draws"] == 1
-        assert ranking["Bruno"]["losses"] == 1
-        assert ranking["Bruno"]["points"] == 1
-        assert ranking["Carlos"]["played"] == 2
-        assert ranking["Carlos"]["wins"] == 1
-        assert ranking["Carlos"]["draws"] == 1
-        assert ranking["Carlos"]["losses"] == 0
-        assert ranking["Carlos"]["points"] == 4
-
-    def test_matches_with_unknown_players_are_ignored(self):
-        ana = make_player("Ana")
-        ghost = uuid.uuid4()
-        matches = [make_match(ana["player_id"], ghost, 5, 0)]
-
-        ranking = repository.compute_ranking([ana], matches)
-
-        assert len(ranking) == 1
-        assert ranking[0]["played"] == 1
-        assert ranking[0]["points"] == 3
-
-    def test_sorted_by_points_then_wins_then_name(self):
-        ana, bruno, carlos, diana = (
-            make_player("Ana"),
-            make_player("Bruno"),
-            make_player("carlos"),
-            make_player("Diana"),
-        )
-        a, b, c, d = (p["player_id"] for p in (ana, bruno, carlos, diana))
-        matches = [
-            make_match(a, b, 1, 0),  # Ana 3 pts, 1 vitória
-            make_match(c, d, 1, 0),  # Carlos 3 pts, 1 vitória
-            make_match(b, d, 0, 0),  # Bruno e Diana 1 pt cada
-        ]
-
-        names = [r["name"] for r in repository.compute_ranking([diana, carlos, bruno, ana], matches)]
-
-        assert names == ["Ana", "carlos", "Bruno", "Diana"]
-
-    def test_tie_on_points_is_broken_by_wins(self):
-        ana, zeca, carlos = make_player("Ana"), make_player("Zeca"), make_player("Carlos")
-        a, z, c = ana["player_id"], zeca["player_id"], carlos["player_id"]
-        matches = [
-            make_match(z, c, 1, 0),  # Zeca 3 pts (1 vitória)
-            make_match(a, c, 0, 0),  # Ana 1 pt
-            make_match(a, c, 0, 0),  # Ana 2 pts
-            make_match(a, c, 0, 0),  # Ana 3 pts (0 vitórias)
-        ]
-        ranking = repository.compute_ranking([ana, zeca, carlos], matches)
-
-        assert [r["name"] for r in ranking][:2] == ["Zeca", "Ana"]
 
 
 class TestPlayerQueries:
-    def test_list_players_sorted_case_insensitive_by_name(self, cassandra_session):
+    def test_list_players_keeps_cassandra_order_without_python_sort(self, cassandra_session):
         cassandra_session.execute.return_value = [
             make_row(make_player("bruno")),
             make_row(make_player("Ana")),
             make_row(make_player("carlos")),
         ]
 
-        names = [p["name"] for p in repository.list_players()]
+        names = [p["username"] for p in repository.list_players()]
 
-        assert names == ["Ana", "bruno", "carlos"]
+        assert names == ["bruno", "Ana", "carlos"]
 
     def test_get_player_returns_none_when_missing(self, cassandra_session):
         cassandra_session.execute.return_value.one.return_value = None
 
         assert repository.get_player(uuid.uuid4()) is None
 
-    def test_get_player_normalizes_null_nickname(self, cassandra_session):
+    def test_get_player_normalizes_null_email(self, cassandra_session):
         player = make_player("Ana")
-        player["nickname"] = None
+        player["email"] = None
         cassandra_session.execute.return_value.one.return_value = make_row(player)
 
-        assert repository.get_player(player["player_id"])["nickname"] == ""
+        assert repository.get_player(player["player_id"])["email"] == ""
 
     def test_create_player_inserts_row_with_generated_id(self, cassandra_session):
-        repository.create_player("Ana", "ana")
+        repository.create_player("ana", "ana@example.com")
 
         query, params = cassandra_session.execute.call_args.args
         assert "INSERT INTO game_stats.players" in query
-        assert params[1:3] == ("Ana", "ana")
+        assert params[1:3] == ("ana", "ana@example.com")
         assert isinstance(params[0], uuid.UUID)
+        assert isinstance(params[3], datetime)
 
-    def test_update_player_updates_name_and_nickname(self, cassandra_session):
+    def test_update_player_updates_username_and_email(self, cassandra_session):
         pid = uuid.uuid4()
+        cassandra_session.execute.return_value.one.return_value.applied = True
 
-        repository.update_player(pid, "Ana Maria", "ana")
+        assert repository.update_player(pid, "ana.m", "ana@example.com") is True
 
         query, params = cassandra_session.execute.call_args.args
         assert "UPDATE game_stats.players" in query
-        assert params[:2] == ("Ana Maria", "ana")
-        assert isinstance(params[2], datetime)
-        assert params[3] == pid
+        assert "IF EXISTS" in query
+        assert params == ("ana.m", "ana@example.com", pid)
+
+    def test_update_player_returns_false_when_missing(self, cassandra_session):
+        cassandra_session.execute.return_value.one.return_value.applied = False
+
+        assert repository.update_player(uuid.uuid4(), "ana", "") is False
 
     def test_delete_player_issues_delete(self, cassandra_session):
         pid = uuid.uuid4()
+        cassandra_session.execute.return_value = []
 
         repository.delete_player(pid)
 
@@ -205,41 +81,134 @@ class TestPlayerQueries:
         assert "DELETE FROM game_stats.players" in query
         assert params == [pid]
 
+    def test_delete_player_with_matches_is_rejected(self, cassandra_session):
+        pid = uuid.uuid4()
+        cassandra_session.execute.return_value = [make_row({"match_date": None, "match_id": uuid.uuid4(), "score": 1, "result": "win"})]
+
+        with pytest.raises(ValueError):
+            repository.delete_player(pid)
+        queries = [c.args[0] for c in cassandra_session.execute.call_args_list]
+        assert not any("DELETE" in q for q in queries)
+
 
 class TestMatchQueries:
-    def test_list_matches_sorted_most_recent_first(self, cassandra_session):
-        old = make_match(uuid.uuid4(), uuid.uuid4(), 1, 0, datetime(2026, 1, 1, tzinfo=timezone.utc))
-        new = make_match(uuid.uuid4(), uuid.uuid4(), 1, 0, datetime(2026, 2, 1, tzinfo=timezone.utc))
-        cassandra_session.execute.return_value = [make_row(old), make_row(new)]
+    def test_list_player_matches_keeps_cassandra_order(self, cassandra_session):
+        pid, old, new = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        cassandra_session.execute.return_value = [
+            make_row({"match_date": datetime(2026, 2, 1).date(), "match_id": new, "score": 2, "result": "win"}),
+            make_row({"match_date": datetime(2026, 1, 1).date(), "match_id": old, "score": 1, "result": "loss"}),
+        ]
 
-        matches = repository.list_matches()
+        matches = repository.list_player_matches(pid)
 
-        assert [m["match_id"] for m in matches] == [new["match_id"], old["match_id"]]
-
-    def test_create_match_inserts_scores_and_players(self, cassandra_session):
-        a, b = uuid.uuid4(), uuid.uuid4()
-
-        repository.create_match(a, b, 3, 2)
-
+        assert [(m["player_id"], m["match_id"]) for m in matches] == [(pid, new), (pid, old)]
         query, params = cassandra_session.execute.call_args.args
-        assert "INSERT INTO game_stats.matches" in query
-        assert params[2:6] == (a, b, 3, 2)
-        assert isinstance(params[0], uuid.UUID)
-        assert isinstance(params[1], datetime)
-        assert isinstance(params[6], datetime)
+        assert "FROM game_stats.matches_by_player WHERE player_id = %s" in query
+        assert params == [pid]
+
+    def test_create_match_writes_single_player_row_with_idempotency_check(self, cassandra_session):
+        pid, mid = uuid.uuid4(), uuid.uuid4()
+        cassandra_session.execute.return_value.one.return_value.applied = True
+
+        assert repository.create_match(pid, 3, "win", mid) is True
+
+        query, params = cassandra_session.execute.call_args_list[0].args
+        assert "matches_by_player" in query
+        assert "IF NOT EXISTS" in query
+        assert params[0] == pid and params[2] == mid and params[4] == 3
+        assert params[7] == "win"
+
+    def test_create_match_is_skipped_when_match_id_already_exists(self, cassandra_session):
+        cassandra_session.execute.return_value.one.return_value.applied = False
+
+        assert repository.create_match(uuid.uuid4(), 3, "win", uuid.uuid4()) is False
+        assert cassandra_session.execute.call_count == 1
+
+    def test_create_match_updates_leaderboard_for_the_player_only(self, cassandra_session):
+        pid = uuid.uuid4()
+        applied = MagicMock()
+        applied.one.return_value.applied = True
+        cassandra_session.execute.side_effect = [
+            applied,
+            [],
+            MagicMock(**{"one.return_value": make_row(make_player("Ana"))}),
+            MagicMock(),
+        ]
+
+        repository.create_match(pid, 3, "win")
+
+        batch_queries = _batch(cassandra_session, 3)
+        assert len(batch_queries) == 1
+        assert "INSERT INTO game_stats.leaderboard" in batch_queries[0]
+
+    def test_create_match_loss_does_not_delete_leaderboard_row(self, cassandra_session):
+        b = make_player("Bruno")
+        applied = MagicMock()
+        applied.one.return_value.applied = True
+        leaderboard = [make_row({"player_id": b["player_id"], "score": 3, "victories": 1})]
+        cassandra_session.execute.side_effect = [
+            applied,
+            leaderboard,
+            MagicMock(**{"one.return_value": make_row(b)}),
+            MagicMock(),
+        ]
+
+        repository.create_match(b["player_id"], 0, "loss")
+
+        batch_queries = _batch(cassandra_session, 3)
+        assert not any("DELETE" in q for q in batch_queries)
+        assert sum("INSERT INTO game_stats.leaderboard" in q for q in batch_queries) == 1
+
+    def test_create_match_rejects_negative_score(self, cassandra_session):
+        with pytest.raises(ValueError):
+            repository.create_match(uuid.uuid4(), -1, "win")
+        cassandra_session.execute.assert_not_called()
+
+    def test_create_match_rejects_invalid_result(self, cassandra_session):
+        with pytest.raises(ValueError):
+            repository.create_match(uuid.uuid4(), 1, "draw_maybe")
+        cassandra_session.execute.assert_not_called()
+
+
+class TestLeaderboardQueries:
+    def test_list_leaderboard_reads_rows_in_stored_order(self, cassandra_session):
+        ana, bruno = make_player("Ana"), make_player("Bruno")
+        cassandra_session.execute.return_value = [
+            make_row({"player_id": ana["player_id"], "username": "Ana", "score": 6, "victories": 2}),
+            make_row({"player_id": bruno["player_id"], "username": "Bruno", "score": 1, "victories": 0}),
+        ]
+
+        leaderboard = repository.list_leaderboard()
+
+        assert [(r["username"], r["points"], r["wins"]) for r in leaderboard] == [
+            ("Ana", 6, 2),
+            ("Bruno", 1, 0),
+        ]
+        query, params = cassandra_session.execute.call_args.args
+        assert "FROM game_stats.leaderboard WHERE ranking_id = %s" in query
+        assert params == [repository.RANKING_ID]
+
+    def test_list_leaderboard_empty_when_no_rows(self, cassandra_session):
+        cassandra_session.execute.return_value = []
+
+        assert repository.list_leaderboard() == []
+        assert cassandra_session.execute.call_count == 1
 
 
 class TestSchema:
-    def test_create_schema_creates_keyspace_and_both_tables(self, cassandra_session):
+    def test_create_schema_creates_keyspace_and_tables(self, cassandra_session):
         repository.create_schema()
 
         statements = [c.args[0] for c in cassandra_session.execute.call_args_list]
-        assert len(statements) == 5
+        assert len(statements) == 4
         assert "CREATE KEYSPACE IF NOT EXISTS game_stats" in statements[0]
-        assert "game_stats.players" in statements[1]
-        assert "ADD IF NOT EXISTS updated_at" in statements[2] and "players" in statements[2]
-        assert "game_stats.matches" in statements[3]
-        assert "ADD IF NOT EXISTS updated_at" in statements[4] and "matches" in statements[4]
+        assert "game_stats.players" in statements[1] and "username text" in statements[1]
+        assert "player_id uuid PRIMARY KEY" in statements[1]
+        assert "game_stats.matches_by_player" in statements[2]
+        assert "PRIMARY KEY ((player_id), match_date, match_id)" in statements[2]
+        assert "game_stats.leaderboard" in statements[3]
+        assert "PRIMARY KEY ((ranking_id), score, player_id)" in statements[3]
+        assert not any("game_stats.matches " in s or "player_stats" in s for s in statements)
 
 
 def make_row(data: dict):
